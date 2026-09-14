@@ -2,7 +2,7 @@ import type { Client, Event as SentryEvent, HandlerDataConsole, IntegrationFn } 
 import {
   addBreadcrumb,
   addConsoleInstrumentationHandler,
-  debug,
+  consoleSandbox,
   defineIntegration,
   getClient,
   getEventDescription,
@@ -29,9 +29,17 @@ const INTEGRATION_NAME = 'Breadcrumbs' as const;
  * The Deno-version does not support browser-specific APIs like dom, xhr and history.
  */
 const _breadcrumbsIntegration = ((options: Partial<BreadcrumbsOptions> = {}) => {
+  if ('fetch' in options) {
+    consoleSandbox(() => {
+      // oxlint-disable-next-line no-console
+      console.warn(
+        '[Sentry] `breadcrumbsIntegration({ fetch })` is deprecated and no longer has any effect. Fetch breadcrumbs are recorded by `fetchIntegration`; disable them with `fetchIntegration({ breadcrumbs: false })`.',
+      );
+    });
+  }
+
   const _options = {
     console: true,
-    fetch: true,
     sentry: true,
     ...options,
   };
@@ -42,12 +50,6 @@ const _breadcrumbsIntegration = ((options: Partial<BreadcrumbsOptions> = {}) => 
       // TODO(v11): Remove this functionality and use `consoleIntegration` from @sentry/core instead.
       if (_options.console) {
         addConsoleInstrumentationHandler(_getConsoleBreadcrumbHandler(client));
-      }
-      // oxlint-disable-next-line typescript/no-deprecated
-      if (!_options.fetch) {
-        debug.warn(
-          'breadcrumbsIntegration({ fetch: false }) no longer has any effect. Fetch breadcrumbs are recorded by fetchIntegration; disable them with fetchIntegration({ breadcrumbs: false }).',
-        );
       }
       if (_options.sentry) {
         client.on('beforeSendEvent', _getSentryBreadcrumbHandler(client));
